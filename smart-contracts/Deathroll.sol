@@ -41,12 +41,27 @@ contract Deathroll {
       return 2;
     }
     else {
-      return 0;
+      return 88;
     }
   }
 
   function get_round_roll() public view returns (uint) {
     return round_roll;
+  }
+
+  function get_round_state() public view returns (uint) {
+    if (game_state == GameState.INIT) {
+      return 0;
+    }
+    else if (game_state == GameState.ROLL_P1) {
+      return 1;
+    }
+    else if (game_state == GameState.ROLL_P2) {
+      return 2;
+    }
+    else {
+      return 3;
+    }
   }
 
   function get_current_player(address curr_address) public view returns (uint) {
@@ -57,7 +72,7 @@ contract Deathroll {
       return 2;
     }
     else {
-      return 0;
+      return 89;
     }
   }
 

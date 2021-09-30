@@ -23,7 +23,7 @@ class App extends Component {
                    round_salt: 'country roads', 
                    game_status: "ongoing", 
                    show_roll: false, 
-                   show_init: true, 
+                   show_init: false, 
                    roll_history: "" 
                   };
 
@@ -63,7 +63,7 @@ class App extends Component {
         console.log('Transaction Hash :', transactionHash);
       }).on('confirmation', () => {}).then((newContractInstance) => {
           console.log('Deployed Contract Address : ', newContractInstance.options.address);
-          this.setState({ contract: newContractInstance, game_contract_address: newContractInstance.options.address });
+          this.setState({ contract: newContractInstance, game_contract_address: newContractInstance.options.address }, () => this.load_state_function());
       })
     } catch (error) {
       // Catch any errors for any of the above operations.
@@ -82,7 +82,7 @@ class App extends Component {
       this.state.game_contract_address
     );
 
-    this.setState({ contract: instance });
+    this.setState({ contract: instance }, () => this.load_state_function());
   }
 
   check_game_finish_status = async (winner_address) => {
@@ -115,10 +115,11 @@ class App extends Component {
     await this.state.contract.methods.roll().send({ from: this.state.accounts[0] });
   }
 
-  init_game_function = async () => {
-    console.log("Init game function!")
-
+  load_state_function = async () => {
     const current_player_number = await this.state.contract.methods.get_current_player(this.state.accounts[0]).call()
+    this.setState({player_number: current_player_number})
+
+    const round_state = await this.state.contract.methods.get_round_state().call()
 
     this.state.contract.events.allEvents({fromBlock: 0}, (error, event) => {
       console.log(event); // same results as the optional callback above
@@ -132,9 +133,21 @@ class App extends Component {
       }
     })
 
-    await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0] });
+    if (round_state == 0) {
+      this.setState({show_init: true})
+    }
+    else if (round_state == current_player_number) {
+      this.check_round_info();
+    }
+    else if (round_state == 3) {
 
-    this.setState({show_init: false, player_number: current_player_number})
+    }
+  }
+
+  init_game_function = async () => {
+    console.log("Init game function!")
+    this.setState({show_init: false})
+    await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0] });
   }
 
   componentDidMount = async () => {

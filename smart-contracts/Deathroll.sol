@@ -9,19 +9,12 @@ contract Deathroll {
   bool action_player1 = false;
   bool action_player2 = false;
 
-  bytes32 blind_roll_player1;
-  bytes32 blind_roll_player2;
-  uint roll_player1;
-  uint roll_player2;
-
   uint round_roll = 100;
 
   enum GameState{
     INIT, 
     ROLL_P1, 
-    ROLL_P2, 
-    REV_P1, 
-    REV_P2, 
+    ROLL_P2,
     FIN
   }
 
@@ -33,14 +26,12 @@ contract Deathroll {
       oponent = _oponent;
   }
 
-  event Roll_time();
-  event Reveil_roll_time();
+  event Roll_time(address roll_address);
   event Game_finished(address winner_address);
 
   modifier onlyPlayers() { require(msg.sender == owner || msg.sender == oponent); _; }
   modifier initState() { require(game_state == GameState.INIT); _; }
-  modifier rollState() { require(game_state == GameState.ROLL_P1 || game_state == GameState.ROLL_P2); _; }
-  modifier revState() { require(game_state == GameState.REV_P1 || game_state == GameState.REV_P2); _; }
+  modifier rollState() { require((msg.sender == owner && game_state == GameState.ROLL_P1) || (msg.sender == oponent && game_state == GameState.ROLL_P2)); _; }
 
   function get_round_player() public view returns (uint) {
     if (game_state == GameState.ROLL_P1) {
@@ -71,10 +62,6 @@ contract Deathroll {
   }
 
   function init_ready() public onlyPlayers initState {
-    if (action_player1 && action_player2) {
-      return;
-    }
-    
     if (msg.sender == owner) {
       action_player1 = true;
     }
@@ -84,82 +71,36 @@ contract Deathroll {
     }
 
     if (action_player1 && action_player2) {
-      action_player2 = false;
-      action_player1 = false;
       game_state = first_to_play;
-      emit Roll_time();
-    }
-  }
-
-  function roll(bytes32 _blind_roll) public onlyPlayers rollState {
-    if (action_player1 && action_player2) {
-      return;
-    }
-
-    if (msg.sender == owner) {
-      action_player1 = true;
-      blind_roll_player1 = _blind_roll;
-    }
-
-    if (msg.sender == oponent) {
-      action_player2 = true;
-      blind_roll_player2 = _blind_roll;
-    }
-
-    if (action_player1 && action_player2) {
-      action_player2 = false;
-      action_player1 = false;
       if (game_state == GameState.ROLL_P1) {
-        game_state = GameState.REV_P1;
+        emit Roll_time(owner);
       }
       else {
-        game_state = GameState.REV_P2;
+        emit Roll_time(oponent);
       }
-      emit Reveil_roll_time();
     }
   }
 
-  function reveil_roll(uint _value, bytes32 _secret) public onlyPlayers revState {
-    if (action_player1 && action_player2) {
-      return;
-    }
+  function roll() public onlyPlayers rollState {
+    round_roll = (uint(uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty)))) % (round_roll - 1)) + 1;
 
-    if (msg.sender == owner) {
-      if (blind_roll_player1 == keccak256(abi.encodePacked(_value, _secret))) {
-        action_player1 = true;
-        roll_player1 = _value;
-      }
-    }
-
-    if (msg.sender == oponent) {
-      action_player2 = true;
-      roll_player2 = _value;
-    }
-
-    if (action_player1 && action_player2) {
-      action_player2 = false;
-      action_player1 = false;
-
-      uint current_roll = ((roll_player1 ^ roll_player2) % (round_roll - 1)) + 1;
-
-      if (current_roll == 1) {
-        if (game_state == GameState.REV_P1) {
-          emit Game_finished(oponent);
-        }
-        else {
-          emit Game_finished(owner);
-        }
-        game_state = GameState.FIN;
+    if (round_roll == 1) {
+      if (game_state == GameState.ROLL_P1) {
+        emit Game_finished(oponent);
       }
       else {
-        if (game_state == GameState.REV_P1) {
-          game_state = GameState.ROLL_P2;
-        }
-        else {
-          game_state = GameState.ROLL_P1;
-        }
-        round_roll = current_roll;
-        emit Roll_time();
+        emit Game_finished(owner);
+      }
+      game_state = GameState.FIN;
+    }
+    else {
+      if (game_state == GameState.ROLL_P1) {
+        game_state = GameState.ROLL_P2;
+        emit Roll_time(oponent);
+      }
+      else {
+        game_state = GameState.ROLL_P1;
+        emit Roll_time(owner);
       }
     }
   }

@@ -14,7 +14,7 @@ class App extends Component {
                    web3: null, 
                    accounts: null, 
                    contract: null, 
-                   oponent_value: "0xc635aF5EfAf083e89CEE2Aba9f858F2781F6577B", 
+                   oponent_value: "0x0aC4b491Cb0c9d2a03Bdd4d63fbd89A6f7e177aA", 
                    player_number: "/", 
                    game_contract_address: "", 
                    round_number: 1234, 
@@ -23,7 +23,6 @@ class App extends Component {
                    round_salt: 'country roads', 
                    game_status: "ongoing", 
                    show_roll: false, 
-                   show_validate: false, 
                    show_init: true, 
                    roll_history: "" 
                   };
@@ -86,18 +85,6 @@ class App extends Component {
     this.setState({ contract: instance });
   }
 
-  getRandomInt(max) {
-    return Math.floor(Math.random() * max);
-  }
-
-  reveil_roll = async () => {
-    this.setState({show_validate: false})
-    console.log("Value: " + this.state.round_number)
-    console.log("Salt: " + this.state.web3.utils.fromAscii(this.state.round_salt))
-
-    await this.state.contract.methods.reveil_roll(this.state.round_number, this.state.web3.utils.fromAscii(this.state.round_salt)).send({ from: this.state.accounts[0] });
-  }
-
   check_game_finish_status = async (winner_address) => {
     var game_status = "game lost"
     if (winner_address === this.state.accounts[0])
@@ -114,7 +101,9 @@ class App extends Component {
       roll_history = this.state.roll_history + " P" + this.state.round_player + ": " + round_roll_curr
     }
     const round_player_curr = await this.state.contract.methods.get_round_player().call()
-    
+    if (round_player_curr == this.state.player_number) {
+      this.setState({show_roll: true})
+    }
     this.setState({ round_roll: round_roll_curr, round_player: round_player_curr, roll_history: roll_history })
     console.log("ROUND BIG ROLL: " + round_roll_curr)
     console.log("ROUND BIG PLAYER: " + round_player_curr)
@@ -122,12 +111,8 @@ class App extends Component {
 
   generate_roll = async () => {
     this.setState({show_roll: false})
-    this.state.round_number = this.getRandomInt(this.state.round_roll);
 
-    const encoded = this.state.web3.eth.abi.encodeParameters(['uint256', 'bytes32'], [this.state.round_number, this.state.web3.utils.fromAscii(this.state.round_salt)])
-    const hash = this.state.web3.utils.sha3(encoded, {encoding: 'hex'})
-
-    await this.state.contract.methods.roll(hash).send({ from: this.state.accounts[0] });
+    await this.state.contract.methods.roll().send({ from: this.state.accounts[0] });
   }
 
   init_game_function = async () => {
@@ -141,10 +126,6 @@ class App extends Component {
 
       if (event.event === "Roll_time") {
         this.check_round_info();
-        this.setState({show_roll: true})
-      }
-      else if (event.event === "Reveil_roll_time") {
-        this.setState({show_validate: true})
       }
       else if (event.event === "Game_finished") {
         this.check_game_finish_status(event.returnValues.winner_address)
@@ -220,10 +201,7 @@ class App extends Component {
           Init game
         </button>
         <button onClick={this.generate_roll} style={this.state.show_roll ?  {}: {display: 'none'}}>
-          Participate in generate roll for p{this.state.round_player}
-        </button>
-        <button onClick={this.reveil_roll} style={this.state.show_validate ?  {}: {display: 'none'}}>
-          Validate roll p{this.state.round_player}
+          Roll
         </button>
       </div>
     );

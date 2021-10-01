@@ -86,6 +86,7 @@ class App extends Component {
   }
 
   check_game_finish_status = async (winner_address) => {
+    this.check_roll_history();
     var game_status = "game lost"
     if (winner_address === this.state.accounts[0])
     {
@@ -94,17 +95,27 @@ class App extends Component {
     this.setState({ game_status: game_status })
   }
 
+  check_roll_history = async () => {
+    const roll_history = await this.state.contract.methods.get_roll_history().call()
+    var index_roll_player = await this.state.contract.methods.get_first_to_play().call()
+
+    var roll_history_string = ""
+    for (var i = 0; i < roll_history.length; i++) {
+        roll_history_string += " P" + index_roll_player + ": " + roll_history[i];
+        index_roll_player = (index_roll_player == 1) ? 2 : 1;
+    }
+
+    this.setState({ roll_history: roll_history_string })
+  }
+
   check_round_info = async () => {
     const round_roll_curr = await this.state.contract.methods.get_round_roll().call()
-    var roll_history = ""
-    if (round_roll_curr != 100) {
-      roll_history = this.state.roll_history + " P" + this.state.round_player + ": " + round_roll_curr
-    }
     const round_player_curr = await this.state.contract.methods.get_round_player().call()
+    this.check_roll_history();
     if (round_player_curr == this.state.player_number) {
       this.setState({show_roll: true})
     }
-    this.setState({ round_roll: round_roll_curr, round_player: round_player_curr, roll_history: roll_history })
+    this.setState({ round_roll: round_roll_curr, round_player: round_player_curr })
     console.log("ROUND BIG ROLL: " + round_roll_curr)
     console.log("ROUND BIG PLAYER: " + round_player_curr)
   }

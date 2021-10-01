@@ -10,6 +10,7 @@ contract Deathroll {
   bool action_player2 = false;
 
   uint round_roll = 100;
+  uint[] roll_history;
 
   enum GameState{
     INIT, 
@@ -76,6 +77,25 @@ contract Deathroll {
     }
   }
 
+  function get_roll_history() public view returns (uint[] memory) {
+    return roll_history;
+  }
+
+  function get_first_to_play() public view returns (uint) {
+    if (first_to_play == GameState.INIT) {
+      return 0;
+    }
+    else if (first_to_play == GameState.ROLL_P1) {
+      return 1;
+    }
+    else if (first_to_play == GameState.ROLL_P2) {
+      return 2;
+    }
+    else {
+      return 3;
+    }
+  }
+
   function init_ready() public onlyPlayers initState {
     if (msg.sender == owner) {
       action_player1 = true;
@@ -98,7 +118,7 @@ contract Deathroll {
 
   function roll() public onlyPlayers rollState {
     round_roll = (uint(uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty)))) % (round_roll - 1)) + 1;
-
+    roll_history.push(round_roll);
     if (round_roll == 1) {
       if (game_state == GameState.ROLL_P1) {
         emit Game_finished(oponent);

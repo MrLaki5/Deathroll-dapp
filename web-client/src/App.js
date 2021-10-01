@@ -14,7 +14,7 @@ class App extends Component {
                    web3: null, 
                    accounts: null, 
                    contract: null, 
-                   oponent_value: "0x0aC4b491Cb0c9d2a03Bdd4d63fbd89A6f7e177aA", 
+                   oponent_value: "0x620799d28dEab551A322AB55943DE1a58e487A37", 
                    player_number: "/", 
                    game_contract_address: "", 
                    round_number: 1234, 
@@ -127,6 +127,21 @@ class App extends Component {
   }
 
   load_state_function = async () => {
+    var games_history = JSON.parse(localStorage.getItem("game_history"));
+    if (games_history != null)
+    {
+      if(games_history.indexOf(this.state.game_contract_address) === -1) 
+      {
+        games_history = [this.state.game_contract_address].concat(games_history);
+        localStorage.setItem("game_history", JSON.stringify(games_history));
+      }
+    }
+    else
+    {
+      games_history = [this.state.game_contract_address]
+      localStorage.setItem("game_history", JSON.stringify(games_history));
+    }
+
     const current_player_number = await this.state.contract.methods.get_current_player(this.state.accounts[0]).call()
     this.setState({player_number: current_player_number})
 
@@ -167,7 +182,7 @@ class App extends Component {
         // Get network provider and web3 instance.
         const web3 = new Web3(window.ethereum);
 
-        //await window.ethereum.enable();
+        await window.ethereum.enable();
 
         // Use web3 to get the user's accounts.
         const accounts = await web3.eth.getAccounts();
@@ -185,6 +200,14 @@ class App extends Component {
 
   render() {
     if (!this.state.contract) {
+      var games_history = JSON.parse(localStorage.getItem("game_history"));
+      let content = [];
+      if (games_history !== null) {
+        games_history.forEach((game, i) => {
+          content.push(<div key={i}>{game}<br/></div>)
+        })
+      }
+      
       return (
         <div>
           Create game: <br/>
@@ -206,6 +229,12 @@ class App extends Component {
             </label>
             <input type="submit" value="Join"/>
           </form>
+
+          <hr/>
+
+          Previous games: <br/>
+          {content}
+
         </div>
       );
     }

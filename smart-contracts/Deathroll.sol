@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.21;
+pragma solidity >=0.8.9;
 
 
 contract Deathroll {
@@ -12,13 +12,15 @@ contract Deathroll {
 
   uint private round_roll = 100;
   uint private minimum_amount;
+  uint private last_action_time;
   uint[] private roll_history;
 
   enum GameState{
     INIT, 
     ROLL_P1, 
     ROLL_P2,
-    FIN
+    FIN,
+    EXPIRED
   }
 
   GameState private game_state = GameState.INIT;
@@ -28,16 +30,19 @@ contract Deathroll {
       owner = msg.sender;
       oponent = _oponent;
       minimum_amount = _minimum_amount;
+      last_action_time = block.timestamp;
   }
 
   event Roll_time(address roll_address);
   event Game_finished(address winner_address);
+  event Expired_withdraw(address winner_address);
 
   modifier onlyPlayers() { require(msg.sender == owner || msg.sender == oponent); _; }
   modifier checkMinimumValue() { require(msg.value >= minimum_amount); _; }
   modifier initState() { require(game_state == GameState.INIT); _; }
   modifier rollState() { require((msg.sender == owner && game_state == GameState.ROLL_P1) || (msg.sender == oponent && game_state == GameState.ROLL_P2)); _; }
-  modifier winnerWithdraw() { require(can_withdraw()); _; }
+  modifier winnerWithdraw() { require(game_state == GameState.FIN && msg.sender == winner && address(this).balance > 0); _; }
+  modifier expiredWithdraw() { require((block.timestamp - last_action_time) / 3600 > 2 && address(this).balance > 0); _; }
 
   function get_round_player() public view returns (uint) {
     if (game_state == GameState.ROLL_P1) {
@@ -48,6 +53,18 @@ contract Deathroll {
     }
     else {
       return 88;
+    }
+  }
+
+  function get_init_status() public view returns (bool) {
+    if (msg.sender == owner && action_player1) {
+      return true;
+    }
+    else if (msg.sender == oponent && action_player2) {
+      return true;
+    }
+    else {
+      return false;
     }
   }
 
@@ -65,8 +82,11 @@ contract Deathroll {
     else if (game_state == GameState.ROLL_P2) {
       return 2;
     }
-    else {
+    else if (game_state == GameState.FIN) {
       return 3;
+    }
+    else {
+      return 4;
     }
   }
 
@@ -105,16 +125,22 @@ contract Deathroll {
     return minimum_amount;
   }
 
+  function get_last_action_time() public view returns (uint) {
+    return last_action_time;
+  }
+
   function can_withdraw() public view returns (bool) {
     return game_state == GameState.FIN && msg.sender == winner && address(this).balance > 0;
   }
 
   function init_ready() public payable onlyPlayers initState checkMinimumValue {
-    if (msg.sender == owner) {
+    if (msg.sender == owner && !action_player1) {
+      last_action_time = block.timestamp;
       action_player1 = true;
     }
 
-    if (msg.sender == oponent) {
+    if (msg.sender == oponent && !action_player2) {
+      last_action_time = block.timestamp;
       action_player2 = true;
     }
 
@@ -132,6 +158,7 @@ contract Deathroll {
   function roll() public onlyPlayers rollState {
     round_roll = (uint(uint256(keccak256(abi.encodePacked(block.timestamp, block.difficulty)))) % (round_roll - 1)) + 1;
     roll_history.push(round_roll);
+    last_action_time = block.timestamp;
     if (round_roll == 1) {
       if (game_state == GameState.ROLL_P1) {
         winner = oponent;
@@ -157,5 +184,32 @@ contract Deathroll {
   function withdraw() winnerWithdraw public {
     uint256 balance = address(this).balance;
     payable(winner).transfer(balance);
+  }
+
+  function expire_withdraw() onlyPlayers expiredWithdraw public {
+    bool should_withdraw = false;
+    address withdraw_address;
+    if (game_state == GameState.INIT && action_player1 ) {
+      should_withdraw = true;
+      withdraw_address = owner;
+    }
+    else if (game_state == GameState.INIT && !action_player1 && action_player2 && msg.sender == oponent) {
+      should_withdraw = true;
+      withdraw_address = oponent;
+    }
+    else if (game_state == GameState.ROLL_P1 && msg.sender == oponent) {
+      should_withdraw = true;
+      withdraw_address = oponent;
+    }
+    else if (game_state == GameState.ROLL_P2 && msg.sender == owner) {
+      should_withdraw = true;
+      withdraw_address = owner;
+    }
+    if (should_withdraw) {
+      winner = withdraw_address;
+      payable(winner).transfer(address(this).balance);
+      game_state = GameState.EXPIRED;
+      emit Expired_withdraw(winner);
+    }
   }
 }

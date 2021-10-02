@@ -27,7 +27,9 @@ class App extends Component {
                    show_withdraw: false,
                    roll_history: "",
                    participation_value: "",
-                   participation_value_wei: ""
+                   participation_value_wei: "",
+                   last_action_time: "",
+                   game_expired_address: ""
                   };
 
     this.handleChange = this.handleChange.bind(this);
@@ -36,6 +38,8 @@ class App extends Component {
     this.handleChangeContractAddress = this.handleChangeContractAddress.bind(this);
     this.handleSubmitContractAddress = this.handleSubmitContractAddress.bind(this);
     this.handleChangeParticipation = this.handleChangeParticipation.bind(this);
+    this.handleChangeExpiredAddress = this.handleChangeExpiredAddress.bind(this);
+    this.handleSubmitExpiredAddress = this.handleSubmitExpiredAddress.bind(this);
   }
 
   handleChange(event){
@@ -50,21 +54,23 @@ class App extends Component {
     this.setState({participation_value: event.target.value});
   }
 
+  handleChangeExpiredAddress(event) {
+    this.setState({game_expired_address: event.target.value});
+  }
+
   handleSubmit(event) {
     event.preventDefault();
     try {
-      this.state.participation_value_wei = this.state.web3.utils.toWei(this.state.participation_value.toString(), "ether")
-
       // Load and deploy contract
       let deploy_contract = new this.state.web3.eth.Contract(DeathrollContract.abi);
       let payload = {
         data: DeathrollContract.bytecode,
-        arguments: [this.state.oponent_value, this.state.participation_value_wei]
+        arguments: [this.state.oponent_value, this.state.web3.utils.toWei(this.state.participation_value.toString(), "ether")]
       }
 
       let parameter = {
           from: this.state.accounts[0],
-          gas: this.state.web3.utils.toHex(800000),
+          gas: this.state.web3.utils.toHex(1000000),
           gasPrice: this.state.web3.utils.toHex(this.state.web3.utils.toWei('30', 'gwei'))
       }
 
@@ -94,6 +100,20 @@ class App extends Component {
     this.setState({ contract: instance }, () => this.load_state_function());
   }
 
+  handleSubmitExpiredAddress(event) {
+    event.preventDefault();
+    this.expire_withdraw();
+  }
+
+  expire_withdraw = async () => {
+    const instance = new this.state.web3.eth.Contract(
+      DeathrollContract.abi,
+      this.state.game_expired_address
+    );
+
+    await instance.methods.expire_withdraw().send({ from: this.state.accounts[0] })
+  }
+
   check_game_finish_status = async (winner_address) => {
     this.check_roll_history();
     var game_status = "game lost"
@@ -108,6 +128,16 @@ class App extends Component {
     this.setState({ game_status: game_status })
   }
 
+  check_game_expired_status = async (winner_address) => {
+    this.check_roll_history();
+    var game_status = "game lost (Expired)"
+    if (winner_address === this.state.accounts[0])
+    {
+      game_status = "game won (Expired)"
+    }
+    this.setState({ game_status: game_status })
+  }
+
   check_roll_history = async () => {
     const roll_history = await this.state.contract.methods.get_roll_history().call()
     var index_roll_player = await this.state.contract.methods.get_first_to_play().call()
@@ -115,7 +145,7 @@ class App extends Component {
     var roll_history_string = ""
     for (var i = 0; i < roll_history.length; i++) {
         roll_history_string += " P" + index_roll_player + ": " + roll_history[i];
-        index_roll_player = (index_roll_player == 1) ? 2 : 1;
+        index_roll_player = (Number(index_roll_player) === 1) ? 2 : 1;
     }
 
     this.setState({ roll_history: roll_history_string })
@@ -124,11 +154,12 @@ class App extends Component {
   check_round_info = async () => {
     const round_roll_curr = await this.state.contract.methods.get_round_roll().call()
     const round_player_curr = await this.state.contract.methods.get_round_player().call()
+    const last_action_time = await this.state.contract.methods.get_last_action_time().call()
     this.check_roll_history();
-    if (round_player_curr == this.state.player_number) {
+    if (Number(round_player_curr) === Number(this.state.player_number)) {
       this.setState({show_roll: true})
     }
-    this.setState({ round_roll: round_roll_curr, round_player: round_player_curr })
+    this.setState({ round_roll: round_roll_curr, round_player: round_player_curr, last_action_time: last_action_time })
     console.log("ROUND BIG ROLL: " + round_roll_curr)
     console.log("ROUND BIG PLAYER: " + round_player_curr)
   }
@@ -162,7 +193,7 @@ class App extends Component {
     const participation_value_wei = await this.state.contract.methods.get_minimum_value().call()
     this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei})
 
-    const round_state = await this.state.contract.methods.get_round_state().call()
+    const round_state = Number(await this.state.contract.methods.get_round_state().call());
 
     this.state.contract.events.allEvents({fromBlock: 0}, (error, event) => {
       console.log(event); // same results as the optional callback above
@@ -174,15 +205,25 @@ class App extends Component {
       else if (event.event === "Game_finished") {
         this.check_game_finish_status(event.returnValues.winner_address)
       }
+      else if (event.event === "Expired_withdraw") {
+        this.check_game_expired_status(event.returnValues.winner_address)
+      }
     })
 
-    if (round_state == 0) {
-      this.setState({show_init: true})
+    if (round_state === 0) {
+      this.check_round_info()
+      const init_status = await this.state.contract.methods.get_init_status().call()
+      if (!init_status) {
+        this.setState({show_init: true})
+      }
     }
-    else if (round_state == current_player_number) {
+    else if (round_state === current_player_number) {
       this.check_round_info();
     }
-    else if (round_state == 3) {
+    else if (round_state === 3) {
+
+    }
+    else if (round_state === 4) {
 
     }
   }
@@ -191,6 +232,7 @@ class App extends Component {
     console.log("Init game function!")
     this.setState({show_init: false})
     await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0], value: this.state.participation_value_wei });
+    this.check_round_info();
   }
 
   withdraw = async () => {
@@ -219,6 +261,13 @@ class App extends Component {
       console.error(error);
     }
   };
+
+  formatDateTime(input) {
+    var date = new Date(0);
+    date.setUTCSeconds(parseInt(input));
+    console.log(date)
+    return date.toLocaleString()
+  }
 
   render() {
     if (!this.state.contract) {
@@ -256,6 +305,17 @@ class App extends Component {
 
           <hr/>
 
+          Expired withdraw: <br/>
+          <form onSubmit={this.handleSubmitExpiredAddress}>
+            <label>
+              Game contract address:<br/>
+              <textarea value={this.state.game_expired_address} onChange={this.handleChangeExpiredAddress} /> <br/>
+            </label>
+            <input type="submit" value="Withdraw"/>
+          </form>
+
+          <hr/>
+
           Previous 5 games: <br/>
           {content}
 
@@ -266,9 +326,11 @@ class App extends Component {
       <div className="App">
         <div>
           Game contract address: {this.state.game_contract_address} <br/>
+          Participation price: {this.state.web3.utils.fromWei(this.state.participation_value_wei, "ether")} ETH <br/>
+          Last action time: {this.formatDateTime(this.state.last_action_time)} <br/>
           You are player: {this.state.player_number} <br/>
           Round roll: {this.state.round_roll} <br/>
-          Current responsible player: {this.state.round_player} <br/>
+          Current responsible player: {Number(this.state.round_player) === 88? "/" : this.state.round_player} <br/>
           Game status: {this.state.game_status}
         </div>
         <div>

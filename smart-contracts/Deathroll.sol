@@ -4,13 +4,15 @@ pragma solidity >=0.4.21;
 
 contract Deathroll {
 
-  address public owner;
-  address public oponent;
-  bool action_player1 = false;
-  bool action_player2 = false;
+  address private owner;
+  address private oponent;
+  address private winner;
+  bool private action_player1 = false;
+  bool private action_player2 = false;
 
-  uint round_roll = 100;
-  uint[] roll_history;
+  uint private round_roll = 100;
+  uint private minimum_amount;
+  uint[] private roll_history;
 
   enum GameState{
     INIT, 
@@ -19,20 +21,23 @@ contract Deathroll {
     FIN
   }
 
-  GameState game_state = GameState.INIT;
-  GameState first_to_play = GameState.ROLL_P1;
+  GameState private game_state = GameState.INIT;
+  GameState private first_to_play = GameState.ROLL_P1;
 
-  constructor(address _oponent) {
+  constructor(address _oponent, uint _minimum_amount) {
       owner = msg.sender;
       oponent = _oponent;
+      minimum_amount = _minimum_amount;
   }
 
   event Roll_time(address roll_address);
   event Game_finished(address winner_address);
 
   modifier onlyPlayers() { require(msg.sender == owner || msg.sender == oponent); _; }
+  modifier checkMinimumValue() { require(msg.value >= minimum_amount); _; }
   modifier initState() { require(game_state == GameState.INIT); _; }
   modifier rollState() { require((msg.sender == owner && game_state == GameState.ROLL_P1) || (msg.sender == oponent && game_state == GameState.ROLL_P2)); _; }
+  modifier winnerWithdraw() { require(can_withdraw()); _; }
 
   function get_round_player() public view returns (uint) {
     if (game_state == GameState.ROLL_P1) {
@@ -96,7 +101,15 @@ contract Deathroll {
     }
   }
 
-  function init_ready() public onlyPlayers initState {
+  function get_minimum_value() public view returns (uint) {
+    return minimum_amount;
+  }
+
+  function can_withdraw() public view returns (bool) {
+    return game_state == GameState.FIN && msg.sender == winner && address(this).balance > 0;
+  }
+
+  function init_ready() public payable onlyPlayers initState checkMinimumValue {
     if (msg.sender == owner) {
       action_player1 = true;
     }
@@ -121,11 +134,12 @@ contract Deathroll {
     roll_history.push(round_roll);
     if (round_roll == 1) {
       if (game_state == GameState.ROLL_P1) {
-        emit Game_finished(oponent);
+        winner = oponent;
       }
       else {
-        emit Game_finished(owner);
+        winner = owner;
       }
+      emit Game_finished(winner);
       game_state = GameState.FIN;
     }
     else {
@@ -138,5 +152,10 @@ contract Deathroll {
         emit Roll_time(owner);
       }
     }
+  }
+
+  function withdraw() winnerWithdraw public {
+    uint256 balance = address(this).balance;
+    payable(winner).transfer(balance);
   }
 }

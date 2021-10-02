@@ -23,8 +23,11 @@ class App extends Component {
                    round_salt: 'country roads', 
                    game_status: "ongoing", 
                    show_roll: false, 
-                   show_init: false, 
-                   roll_history: "" 
+                   show_init: false,
+                   show_withdraw: false,
+                   roll_history: "",
+                   participation_value: "",
+                   participation_value_wei: ""
                   };
 
     this.handleChange = this.handleChange.bind(this);
@@ -32,6 +35,7 @@ class App extends Component {
 
     this.handleChangeContractAddress = this.handleChangeContractAddress.bind(this);
     this.handleSubmitContractAddress = this.handleSubmitContractAddress.bind(this);
+    this.handleChangeParticipation = this.handleChangeParticipation.bind(this);
   }
 
   handleChange(event){
@@ -42,15 +46,20 @@ class App extends Component {
     this.setState({game_contract_address: event.target.value});
   }
 
+  handleChangeParticipation(event) {
+    this.setState({participation_value: event.target.value});
+  }
+
   handleSubmit(event) {
     event.preventDefault();
     try {
+      this.state.participation_value_wei = this.state.web3.utils.toWei(this.state.participation_value.toString(), "ether")
 
       // Load and deploy contract
       let deploy_contract = new this.state.web3.eth.Contract(DeathrollContract.abi);
       let payload = {
         data: DeathrollContract.bytecode,
-        arguments: [this.state.oponent_value]
+        arguments: [this.state.oponent_value, this.state.participation_value_wei]
       }
 
       let parameter = {
@@ -91,6 +100,10 @@ class App extends Component {
     if (winner_address === this.state.accounts[0])
     {
       game_status = "game won"
+      const can_withdraw = await this.state.contract.methods.can_withdraw().call({ from: this.state.accounts[0] })
+      if (can_withdraw) {
+        this.setState({show_withdraw: true})
+      }
     }
     this.setState({ game_status: game_status })
   }
@@ -143,7 +156,8 @@ class App extends Component {
     }
 
     const current_player_number = await this.state.contract.methods.get_current_player(this.state.accounts[0]).call()
-    this.setState({player_number: current_player_number})
+    const participation_value_wei = await this.state.contract.methods.get_minimum_value().call()
+    this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei})
 
     const round_state = await this.state.contract.methods.get_round_state().call()
 
@@ -173,7 +187,12 @@ class App extends Component {
   init_game_function = async () => {
     console.log("Init game function!")
     this.setState({show_init: false})
-    await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0] });
+    await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0], value: this.state.participation_value_wei });
+  }
+
+  withdraw = async () => {
+    this.setState({show_withdraw: false})
+    await this.state.contract.methods.withdraw().send({ from: this.state.accounts[0] });
   }
 
   componentDidMount = async () => {
@@ -215,6 +234,8 @@ class App extends Component {
             <label>
               Oponnent public address:<br/>
               <textarea value={this.state.oponent_value} onChange={this.handleChange} /> <br/>
+              Participation price:<br/>
+              <input type="number" value={this.state.participation_value} onChange={this.handleChangeParticipation} /> <br/>
             </label>
             <input type="submit" value="Create"/>
           </form>
@@ -255,6 +276,9 @@ class App extends Component {
         </button>
         <button onClick={this.generate_roll} style={this.state.show_roll ?  {}: {display: 'none'}}>
           Roll
+        </button>
+        <button onClick={this.withdraw} style={this.state.show_withdraw ?  {}: {display: 'none'}}>
+          Withdraw price
         </button>
       </div>
     );

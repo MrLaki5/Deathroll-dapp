@@ -146,6 +146,9 @@ class App extends Component {
       if(games_history.indexOf(this.state.game_contract_address) === -1) 
       {
         games_history = [this.state.game_contract_address].concat(games_history);
+        if (games_history.length > 5) {
+          games_history.length = 5;
+        }
         localStorage.setItem("game_history", JSON.stringify(games_history));
       }
     }
@@ -233,9 +236,9 @@ class App extends Component {
           <form onSubmit={this.handleSubmit}>
             <label>
               Oponnent public address:<br/>
-              <textarea value={this.state.oponent_value} onChange={this.handleChange} /> <br/>
+              <textarea value={this.state.oponent_value} onChange={this.handleChange} required/> <br/>
               Participation price:<br/>
-              <input type="number" value={this.state.participation_value} onChange={this.handleChangeParticipation} /> <br/>
+              <input type="number" value={this.state.participation_value} onChange={this.handleChangeParticipation} required/> <br/>
             </label>
             <input type="submit" value="Create"/>
           </form>
@@ -253,7 +256,7 @@ class App extends Component {
 
           <hr/>
 
-          Previous games: <br/>
+          Previous 5 games: <br/>
           {content}
 
         </div>
@@ -278,7 +281,7 @@ class App extends Component {
           Roll
         </button>
         <button onClick={this.withdraw} style={this.state.show_withdraw ?  {}: {display: 'none'}}>
-          Withdraw price
+          Withdraw prize
         </button>
       </div>
     );

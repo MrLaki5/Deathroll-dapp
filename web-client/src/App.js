@@ -21,7 +21,7 @@ class App extends Component {
                    round_roll: 100, 
                    round_player: 1, 
                    round_salt: 'country roads', 
-                   game_status: "ongoing", 
+                   game_status: "Ongoing", 
                    show_roll: false, 
                    show_init: false,
                    show_withdraw: false,
@@ -56,6 +56,10 @@ class App extends Component {
 
   handleChangeExpiredAddress(event) {
     this.setState({game_expired_address: event.target.value});
+  }
+
+  handleLeaveRoom = async () => {
+    this.setState({contract: null})
   }
 
   handleSubmit(event) {
@@ -116,10 +120,10 @@ class App extends Component {
 
   check_game_finish_status = async (winner_address) => {
     this.check_roll_history();
-    var game_status = "game lost"
+    var game_status = "Game lost"
     if (winner_address === this.state.accounts[0])
     {
-      game_status = "game won"
+      game_status = "Game won"
       const can_withdraw = await this.state.contract.methods.can_withdraw().call({ from: this.state.accounts[0] })
       if (can_withdraw) {
         this.setState({show_withdraw: true})
@@ -130,10 +134,10 @@ class App extends Component {
 
   check_game_expired_status = async (winner_address) => {
     this.check_roll_history();
-    var game_status = "game lost (Expired)"
+    var game_status = "Game lost (Expired)"
     if (winner_address === this.state.accounts[0])
     {
-      game_status = "game won (Expired)"
+      game_status = "Game won (Expired)"
     }
     this.setState({ game_status: game_status })
   }
@@ -212,7 +216,7 @@ class App extends Component {
 
     if (round_state === 0) {
       this.check_round_info()
-      const init_status = await this.state.contract.methods.get_init_status().call()
+      const init_status = await this.state.contract.methods.get_init_status().call({ from: this.state.accounts[0] })
       if (!init_status) {
         this.setState({show_init: true})
       }
@@ -266,7 +270,8 @@ class App extends Component {
     var date = new Date(0);
     date.setUTCSeconds(parseInt(input));
     console.log(date)
-    return date.toLocaleString()
+    //return date.toLocaleString()
+    return  date.getHours() + ":" + date.getMinutes() + " " + date.getDate()  + "." + (date.getMonth()+1) + "." + date.getFullYear();
   }
 
   render() {
@@ -275,76 +280,121 @@ class App extends Component {
       let content = [];
       if (games_history !== null) {
         games_history.forEach((game, i) => {
-          content.push(<div key={i}>{game}<br/></div>)
+          content.push(<li className="list-group-item list-group-item-light table-color" key={i}>{game}</li>)
         })
       }
       
       return (
         <div>
-          Create game: <br/>
-          <form onSubmit={this.handleSubmit}>
-            <label>
-              Oponnent public address:<br/>
-              <textarea value={this.state.oponent_value} onChange={this.handleChange} required/> <br/>
-              Participation price:<br/>
-              <input type="number" value={this.state.participation_value} onChange={this.handleChangeParticipation} required/> <br/>
-            </label>
-            <input type="submit" value="Create"/>
-          </form>
+          <div className="container image-container spacer">
+            <img src="/background.jpg" className="img-fluid image-fix-height-250 unselectable" alt="..."/>
+            <div className="centered"><h2 className="title-style unselectable">Deathroll</h2></div>
+          </div>
 
-          <hr/>
+          <div className="container spacer">
+            <div className="row">
+              <div className="col inner-col-class">
+                  <h4 className="title-style">Create game</h4>
+                  <form onSubmit={this.handleSubmit} autoComplete="off">
+                    <div className="mb-3">
+                      <label htmlFor="game_expired_address" className="form-label">Oponnent public address</label>
+                      <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.oponent_value} onChange={this.handleChange} />
+                      <div id="game_expired_address_help" className="form-text">Opponents public wallet address</div>
+                    </div>
 
-          Join game: <br/>
-          <form onSubmit={this.handleSubmitContractAddress}>
-            <label>
-              Game contract address:<br/>
-              <textarea value={this.state.game_contract_address} onChange={this.handleChangeContractAddress} /> <br/>
-            </label>
-            <input type="submit" value="Join"/>
-          </form>
+                    <div className="mb-3">
+                      <label htmlFor="game_expired_address" className="form-label">Participation price</label>
+                      <input type="number" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.participation_value} onChange={this.handleChangeParticipation} />
+                      <div id="game_expired_address_help" className="form-text">Participation price players have to pay to play, which summed will be delivered to game winner</div>
+                    </div>
 
-          <hr/>
+                    <div className="mb-3">
+                      <input type="submit" className="btn btn-outline-danger" value="Create"/>
+                    </div>
+                  </form>
+              </div>
 
-          Expired withdraw: <br/>
-          <form onSubmit={this.handleSubmitExpiredAddress}>
-            <label>
-              Game contract address:<br/>
-              <textarea value={this.state.game_expired_address} onChange={this.handleChangeExpiredAddress} /> <br/>
-            </label>
-            <input type="submit" value="Withdraw"/>
-          </form>
+              <div className="col inner-col-class">
+                <h4 className="title-style">Join game</h4>
+                <form onSubmit={this.handleSubmitContractAddress} autoComplete="off">
+                  <div className="mb-3">
+                    <label htmlFor="game_expired_address" className="form-label">Game contract address</label>
+                    <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.game_contract_address} onChange={this.handleChangeContractAddress} />
+                    <div id="game_expired_address_help" className="form-text">Address of game contract where You want to join </div>
+                  </div>
+                  <div className="mb-3">
+                    <input type="submit" className="btn btn-outline-danger" value="Join"/>
+                  </div>
+                </form>
+              </div>
 
-          <hr/>
+              <div className="col inner-col-class">
+                <h4 className="title-style">Expired withdraw</h4>
+                  <form onSubmit={this.handleSubmitExpiredAddress} autoComplete="off">
+                    <div className="mb-3">
+                      <label htmlFor="game_expired_address" className="form-label">Game contract address</label>
+                      <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.game_expired_address} onChange={this.handleChangeExpiredAddress} />
+                      <div id="game_expired_address_help" className="form-text">Address of game contract where You want to use expired withdraw </div>
+                    </div>
+                    <div className="mb-3">
+                      <input type="submit" className="btn btn-outline-danger" value="Withdraw"/>
+                    </div>
+                </form>
+              </div>
+            </div>
 
-          Previous 5 games: <br/>
-          {content}
+            <div className="row text-center inner-col-class-full-row">
+              <h4 className="title-style">Previous 5 games</h4>
+              <ul className="list-group list-group-flush text-center">
+                {content}
+              </ul>
+            </div>
 
+          </div>
         </div>
       );
     }
     return (
-      <div className="App">
-        <div>
-          Game contract address: {this.state.game_contract_address} <br/>
-          Participation price: {this.state.web3.utils.fromWei(this.state.participation_value_wei, "ether")} ETH <br/>
-          Last action time: {this.formatDateTime(this.state.last_action_time)} <br/>
-          You are player: {this.state.player_number} <br/>
-          Round roll: {this.state.round_roll} <br/>
-          Current responsible player: {Number(this.state.round_player) === 88? "/" : this.state.round_player} <br/>
-          Game status: {this.state.game_status}
+      <div>
+        <div className="container image-container spacer">
+          <img src="/background.jpg" className="img-fluid image-fix-height-250 unselectable" alt="..."/>
+          <div className="centered"><h2 className="title-style unselectable">Deathroll</h2></div>
         </div>
-        <div>
-          Roll history: {this.state.roll_history}
+
+        <div className="container spacer">
+          <div className="row text-center inner-col-class-full-row">
+            <h4 className="title-style">Game info</h4>
+            <ul className="list-group list-group-flush text-center">
+              <li className="list-group-item list-group-item-light table-color" key={0}><div id="help_0" className="form-text">Game contract address</div><label aria-describedby="help_0"><b>{this.state.game_contract_address}</b></label></li>
+              <li className="list-group-item list-group-item-light table-color" key={1}><div id="help_0" className="form-text">Game status</div><label aria-describedby="help_0"><b>{this.state.game_status}</b></label></li>
+              <li className="list-group-item list-group-item-light table-color" key={2}><div id="help_0" className="form-text">Participation price</div><label aria-describedby="help_0"><b>{this.state.web3.utils.fromWei(this.state.participation_value_wei, "ether")}ETH</b></label></li>
+              <li className="list-group-item list-group-item-light table-color" key={3}><div id="help_0" className="form-text">Last action time</div><label aria-describedby="help_0"><b>{this.formatDateTime(this.state.last_action_time)}</b></label></li>
+              <li className="list-group-item list-group-item-light table-color" key={4}><div id="help_0" className="form-text">You are player</div><label aria-describedby="help_0"><b>{this.state.player_number}</b></label></li>
+              <li className="list-group-item list-group-item-light table-color" key={5}><div id="help_0" className="form-text">Round rolling player</div><label aria-describedby="help_0"><b>{Number(this.state.round_player) === 88? "/" : this.state.round_player}</b></label></li>
+              <li className="list-group-item list-group-item-light table-color" key={6}><div id="help_0" className="form-text">Round roll</div><label aria-describedby="help_0"><b>{this.state.round_roll}</b></label></li>
+              <li className="list-group-item list-group-item-light table-color" key={7}><div id="help_0" className="form-text">Roll history</div><label aria-describedby="help_0"><b>{this.state.roll_history}</b></label></li>
+            </ul>
+          </div>
+
+          <div className="row text-center inner-col-class-full-row spacer">
+            <h4 className="title-style">Game actions</h4>
+            <button className="btn btn-outline-danger" onClick={this.init_game_function} style={this.state.show_init ?  {}: {display: 'none'}}>
+              Init game
+            </button>
+            <button className="btn btn-outline-danger" onClick={this.generate_roll} style={this.state.show_roll ?  {}: {display: 'none'}}>
+              Roll
+            </button>
+            <button className="btn btn-outline-danger" onClick={this.withdraw} style={this.state.show_withdraw ?  {}: {display: 'none'}}>
+              Withdraw prize
+            </button>
+          </div>
+
+          <div className="row text-center spacer-up">
+            <button className="remove_button_css" onClick={this.handleLeaveRoom}>
+              <u>Leave room</u>
+            </button>
+          </div>
         </div>
-        <button onClick={this.init_game_function} style={this.state.show_init ?  {}: {display: 'none'}}>
-          Init game
-        </button>
-        <button onClick={this.generate_roll} style={this.state.show_roll ?  {}: {display: 'none'}}>
-          Roll
-        </button>
-        <button onClick={this.withdraw} style={this.state.show_withdraw ?  {}: {display: 'none'}}>
-          Withdraw prize
-        </button>
       </div>
     );
   }

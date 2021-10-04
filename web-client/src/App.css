@@ -28,6 +28,11 @@
   color: #61dafb;
 }
 
+.form-control:focus {
+  border-color: #F44336;
+  box-shadow: 0 0 0 0.2rem rgba(206, 46, 25, 0.25);
+} 
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);
@@ -35,4 +40,72 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.title-style {
+  color: #df4759;
+}
+
+.image-fix-height-250 {
+  height: 300px;
+  width: 100%;
+  object-fit: cover;
+}
+
+.image-container {
+  position: relative;
+  text-align: center;
+}
+
+.centered {
+  position: absolute;
+  top: 50%;
+  left: 20%;
+  transform: translate(-50%, -50%);
+}
+
+.unselectable {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.spacer {
+  padding-bottom: 20px
+}
+
+.spacer-up {
+  padding-top: 30px
+}
+
+.inner-col-class { 
+  margin:10px; 
+  padding:10px;
+  background-color: rgb(247,247,247);
+  border-radius: 2%;
+}
+
+.inner-col-class-full-row { 
+  margin-top: 10px;
+  margin-left: 0px;
+  margin-right: 0px;
+  padding:10px;
+  background-color: rgb(247,247,247);
+  border-radius: 2%;
+}
+
+.table-color {
+  background-color: rgb(247,247,247);
+}
+
+.remove_button_css { 
+  outline: none;
+  padding: 5px; 
+  border: 0px; 
+  box-sizing: none; 
+  background-color: transparent;
+  color: #df4759;
 }

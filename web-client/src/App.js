@@ -14,7 +14,7 @@ class App extends Component {
                    web3: null, 
                    accounts: null, 
                    contract: null, 
-                   oponent_value: "0x620799d28dEab551A322AB55943DE1a58e487A37", 
+                   oponent_value: "", 
                    player_number: "/", 
                    game_contract_address: "", 
                    round_number: 1234, 
@@ -29,7 +29,8 @@ class App extends Component {
                    participation_value: "",
                    participation_value_wei: "",
                    last_action_time: "",
-                   game_expired_address: ""
+                   game_expired_address: "",
+                   error_message: ""
                   };
 
     this.handleChange = this.handleChange.bind(this);
@@ -86,22 +87,28 @@ class App extends Component {
       })
     } catch (error) {
       // Catch any errors for any of the above operations.
-      alert(
-        `Failed to load web3, accounts, or contract. Check console for details.`,
-      );
-      console.error(error);
+      this.setState({error_message: "There was problem with creating a game contract."})
     }
   }
 
   handleSubmitContractAddress(event) {
     event.preventDefault();
+    try {
+      if (this.state.web3.utils.isAddress(this.state.game_contract_address)) {
+        const instance = new this.state.web3.eth.Contract(
+          DeathrollContract.abi,
+          this.state.game_contract_address
+        );
 
-    const instance = new this.state.web3.eth.Contract(
-      DeathrollContract.abi,
-      this.state.game_contract_address
-    );
-
-    this.setState({ contract: instance }, () => this.load_state_function());
+        this.setState({ contract: instance }, () => this.load_state_function());
+      }
+      else {
+        this.setState({error_message: "Invalid game address."})
+      }
+    } catch (error) {
+      // Catch any errors for any of the above operations.
+      this.setState({error_message: "There is error joining a game."})
+    }
   }
 
   handleSubmitExpiredAddress(event) {
@@ -110,12 +117,22 @@ class App extends Component {
   }
 
   expire_withdraw = async () => {
-    const instance = new this.state.web3.eth.Contract(
-      DeathrollContract.abi,
-      this.state.game_expired_address
-    );
+    try {
+      if (this.state.web3.utils.isAddress(this.state.game_contract_address)) {
+        const instance = new this.state.web3.eth.Contract(
+          DeathrollContract.abi,
+          this.state.game_expired_address
+        );
 
-    await instance.methods.expire_withdraw().send({ from: this.state.accounts[0] })
+        await instance.methods.expire_withdraw().send({ from: this.state.accounts[0] })
+      }
+      else {
+        this.setState({error_message: "Invalid game address."})
+      }
+    } catch (error) {
+      // Catch any errors for any of the above operations.
+      this.setState({error_message: "There is error requesting expired withdrawal."})
+    }
   }
 
   check_game_finish_status = async (winner_address) => {
@@ -169,79 +186,101 @@ class App extends Component {
   }
 
   generate_roll = async () => {
-    this.setState({show_roll: false})
+    try {
+      this.setState({show_roll: false})
 
-    await this.state.contract.methods.roll().send({ from: this.state.accounts[0] });
+      await this.state.contract.methods.roll().send({ from: this.state.accounts[0] });
+    }
+    catch (error) {
+      // Catch any errors for any of the above operations.
+      this.setState({error_message: "There was error rolling.", show_roll: true})
+    }
   }
 
   load_state_function = async () => {
-    var games_history = JSON.parse(localStorage.getItem("game_history"));
-    if (games_history != null)
-    {
-      if(games_history.indexOf(this.state.game_contract_address) === -1) 
+    try {
+      var games_history = JSON.parse(localStorage.getItem("game_history"));
+      if (games_history != null)
       {
-        games_history = [this.state.game_contract_address].concat(games_history);
-        if (games_history.length > 5) {
-          games_history.length = 5;
+        if(games_history.indexOf(this.state.game_contract_address) === -1) 
+        {
+          games_history = [this.state.game_contract_address].concat(games_history);
+          if (games_history.length > 5) {
+            games_history.length = 5;
+          }
+          localStorage.setItem("game_history", JSON.stringify(games_history));
         }
+      }
+      else
+      {
+        games_history = [this.state.game_contract_address]
         localStorage.setItem("game_history", JSON.stringify(games_history));
       }
-    }
-    else
-    {
-      games_history = [this.state.game_contract_address]
-      localStorage.setItem("game_history", JSON.stringify(games_history));
-    }
 
-    const current_player_number = await this.state.contract.methods.get_current_player(this.state.accounts[0]).call()
-    const participation_value_wei = await this.state.contract.methods.get_minimum_value().call()
-    this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei})
+      const current_player_number = await this.state.contract.methods.get_current_player(this.state.accounts[0]).call()
+      const participation_value_wei = await this.state.contract.methods.get_minimum_value().call()
+      this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei})
 
-    const round_state = Number(await this.state.contract.methods.get_round_state().call());
+      const round_state = Number(await this.state.contract.methods.get_round_state().call());
 
-    this.state.contract.events.allEvents({fromBlock: 0}, (error, event) => {
-      console.log(event); // same results as the optional callback above
-      console.log("ROLLL: " + event.event)
+      this.state.contract.events.allEvents({fromBlock: 0}, (error, event) => {
+        console.log(event); // same results as the optional callback above
+        console.log("ROLLL: " + event.event)
 
-      if (event.event === "Roll_time") {
+        if (event.event === "Roll_time") {
+          this.check_round_info();
+        }
+        else if (event.event === "Game_finished") {
+          this.check_game_finish_status(event.returnValues.winner_address)
+        }
+        else if (event.event === "Expired_withdraw") {
+          this.check_game_expired_status(event.returnValues.winner_address)
+        }
+      })
+
+      if (round_state === 0) {
+        this.check_round_info()
+        const init_status = await this.state.contract.methods.get_init_status().call({ from: this.state.accounts[0] })
+        if (!init_status) {
+          this.setState({show_init: true})
+        }
+      }
+      else if (round_state === current_player_number) {
         this.check_round_info();
       }
-      else if (event.event === "Game_finished") {
-        this.check_game_finish_status(event.returnValues.winner_address)
-      }
-      else if (event.event === "Expired_withdraw") {
-        this.check_game_expired_status(event.returnValues.winner_address)
-      }
-    })
+      else if (round_state === 3) {
 
-    if (round_state === 0) {
-      this.check_round_info()
-      const init_status = await this.state.contract.methods.get_init_status().call({ from: this.state.accounts[0] })
-      if (!init_status) {
-        this.setState({show_init: true})
       }
-    }
-    else if (round_state === current_player_number) {
-      this.check_round_info();
-    }
-    else if (round_state === 3) {
+      else if (round_state === 4) {
 
-    }
-    else if (round_state === 4) {
-
+      }
+    } catch (error) {
+      // Catch any errors for any of the above operations.
+      this.setState({error_message: "There was error loading game content."})
     }
   }
 
   init_game_function = async () => {
-    console.log("Init game function!")
-    this.setState({show_init: false})
-    await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0], value: this.state.participation_value_wei });
-    this.check_round_info();
+    try {
+      this.setState({show_init: false})
+      await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0], value: this.state.participation_value_wei });
+      this.check_round_info();
+    }
+    catch (error) {
+      // Catch any errors for any of the above operations.
+      this.setState({error_message: "There was error initializing game.", show_init: true})
+    }
   }
 
   withdraw = async () => {
-    this.setState({show_withdraw: false})
-    await this.state.contract.methods.withdraw().send({ from: this.state.accounts[0] });
+    try {
+      this.setState({show_withdraw: false})
+      await this.state.contract.methods.withdraw().send({ from: this.state.accounts[0] });
+    }
+    catch (error) {
+      // Catch any errors for any of the above operations.
+      this.setState({error_message: "There was error withdrawing prize.", show_withdraw: true})
+    }
   }
 
   componentDidMount = async () => {
@@ -257,12 +296,12 @@ class App extends Component {
 
         this.setState({ web3, accounts});
       }
+      else {
+        this.setState({error_message: "Metamask extension not found in Your browser, be sure to have it in order to use this app."});
+      }
     } catch (error) {
       // Catch any errors for any of the above operations.
-      alert(
-        `Failed to load web3, accounts, or contract. Check console for details.`,
-      );
-      console.error(error);
+      this.setState({error_message: "There was problem connecting with Your Metamask wallet, make sure everything is correctly set up."});
     }
   };
 
@@ -275,6 +314,19 @@ class App extends Component {
   }
 
   render() {
+
+    var error_content = ""
+    if (this.state.error_message !== "") {
+      error_content = (
+      <div className="row">
+        <div className="col">
+          <div className="alert alert-danger" role="alert">
+            {this.state.error_message}
+          </div>
+        </div>
+      </div>);
+    }
+
     if (!this.state.contract) {
       var games_history = JSON.parse(localStorage.getItem("game_history"));
       let content = [];
@@ -292,19 +344,22 @@ class App extends Component {
           </div>
 
           <div className="container spacer">
+
+            {error_content}
+
             <div className="row">
               <div className="col inner-col-class">
                   <h4 className="title-style">Create game</h4>
                   <form onSubmit={this.handleSubmit} autoComplete="off">
                     <div className="mb-3">
                       <label htmlFor="game_expired_address" className="form-label">Oponnent public address</label>
-                      <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.oponent_value} onChange={this.handleChange} />
+                      <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.oponent_value} onChange={this.handleChange} required/>
                       <div id="game_expired_address_help" className="form-text">Opponents public wallet address</div>
                     </div>
 
                     <div className="mb-3">
                       <label htmlFor="game_expired_address" className="form-label">Participation price</label>
-                      <input type="number" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.participation_value} onChange={this.handleChangeParticipation} />
+                      <input type="number" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.participation_value} onChange={this.handleChangeParticipation} required/>
                       <div id="game_expired_address_help" className="form-text">Participation price players have to pay to play, which summed will be delivered to game winner</div>
                     </div>
 
@@ -319,7 +374,7 @@ class App extends Component {
                 <form onSubmit={this.handleSubmitContractAddress} autoComplete="off">
                   <div className="mb-3">
                     <label htmlFor="game_expired_address" className="form-label">Game contract address</label>
-                    <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.game_contract_address} onChange={this.handleChangeContractAddress} />
+                    <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.game_contract_address} onChange={this.handleChangeContractAddress} required/>
                     <div id="game_expired_address_help" className="form-text">Address of game contract where You want to join </div>
                   </div>
                   <div className="mb-3">
@@ -333,7 +388,7 @@ class App extends Component {
                   <form onSubmit={this.handleSubmitExpiredAddress} autoComplete="off">
                     <div className="mb-3">
                       <label htmlFor="game_expired_address" className="form-label">Game contract address</label>
-                      <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.game_expired_address} onChange={this.handleChangeExpiredAddress} />
+                      <input type="text" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.game_expired_address} onChange={this.handleChangeExpiredAddress} required/>
                       <div id="game_expired_address_help" className="form-text">Address of game contract where You want to use expired withdraw </div>
                     </div>
                     <div className="mb-3">
@@ -362,6 +417,9 @@ class App extends Component {
         </div>
 
         <div className="container spacer">
+
+          {error_content}
+
           <div className="row text-center inner-col-class-full-row">
             <h4 className="title-style">Game info</h4>
             <ul className="list-group list-group-flush text-center">

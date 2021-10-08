@@ -26,11 +26,12 @@ contract Deathroll {
   GameState private game_state = GameState.INIT;
   GameState private first_to_play = GameState.ROLL_P1;
 
-  constructor(address _oponent, uint _minimum_amount) {
+  constructor(address _oponent, uint _minimum_amount, uint _start_roll) {
       owner = msg.sender;
       oponent = _oponent;
       minimum_amount = _minimum_amount;
       last_action_time = block.timestamp;
+      round_roll = _start_roll;
   }
 
   event Roll_time(address roll_address);

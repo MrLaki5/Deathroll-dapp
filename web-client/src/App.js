@@ -30,7 +30,8 @@ class App extends Component {
                    participation_value_wei: "",
                    last_action_time: "",
                    game_expired_address: "",
-                   error_message: ""
+                   error_message: "",
+                   starting_roll_value: 100
                   };
 
     this.handleChange = this.handleChange.bind(this);
@@ -41,6 +42,7 @@ class App extends Component {
     this.handleChangeParticipation = this.handleChangeParticipation.bind(this);
     this.handleChangeExpiredAddress = this.handleChangeExpiredAddress.bind(this);
     this.handleSubmitExpiredAddress = this.handleSubmitExpiredAddress.bind(this);
+    this.handleChangeStartingRoll = this.handleChangeStartingRoll.bind(this)
   }
 
   handleChange(event){
@@ -63,14 +65,21 @@ class App extends Component {
     this.setState({contract: null})
   }
 
+  handleChangeStartingRoll(event) {
+    this.setState({starting_roll_value: event.target.value})
+  }
+
   handleSubmit(event) {
     event.preventDefault();
     try {
+      this.setState({error_message: ""})
       // Load and deploy contract
       let deploy_contract = new this.state.web3.eth.Contract(DeathrollContract.abi);
       let payload = {
         data: DeathrollContract.bytecode,
-        arguments: [this.state.oponent_value, this.state.web3.utils.toWei(this.state.participation_value.toString(), "ether")]
+        arguments: [this.state.oponent_value, 
+                    this.state.web3.utils.toWei(this.state.participation_value.toString(), "ether"),
+                    this.state.starting_roll_value]
       }
 
       let parameter = {
@@ -94,6 +103,7 @@ class App extends Component {
   handleSubmitContractAddress(event) {
     event.preventDefault();
     try {
+      this.setState({error_message: ""})
       if (this.state.web3.utils.isAddress(this.state.game_contract_address)) {
         const instance = new this.state.web3.eth.Contract(
           DeathrollContract.abi,
@@ -118,7 +128,8 @@ class App extends Component {
 
   expire_withdraw = async () => {
     try {
-      if (this.state.web3.utils.isAddress(this.state.game_contract_address)) {
+      this.setState({error_message: ""})
+      if (this.state.web3.utils.isAddress(this.state.game_expired_address)) {
         const instance = new this.state.web3.eth.Contract(
           DeathrollContract.abi,
           this.state.game_expired_address
@@ -187,7 +198,7 @@ class App extends Component {
 
   generate_roll = async () => {
     try {
-      this.setState({show_roll: false})
+      this.setState({show_roll: false, error_message: ""})
 
       await this.state.contract.methods.roll().send({ from: this.state.accounts[0] });
     }
@@ -219,7 +230,7 @@ class App extends Component {
 
       const current_player_number = await this.state.contract.methods.get_current_player(this.state.accounts[0]).call()
       const participation_value_wei = await this.state.contract.methods.get_minimum_value().call()
-      this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei})
+      this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei, error_message: ""})
 
       const round_state = Number(await this.state.contract.methods.get_round_state().call());
 
@@ -262,7 +273,7 @@ class App extends Component {
 
   init_game_function = async () => {
     try {
-      this.setState({show_init: false})
+      this.setState({show_init: false, error_message: ""})
       await this.state.contract.methods.init_ready().send({ from: this.state.accounts[0], value: this.state.participation_value_wei });
       this.check_round_info();
     }
@@ -274,7 +285,7 @@ class App extends Component {
 
   withdraw = async () => {
     try {
-      this.setState({show_withdraw: false})
+      this.setState({show_withdraw: false, error_message: ""})
       await this.state.contract.methods.withdraw().send({ from: this.state.accounts[0] });
     }
     catch (error) {
@@ -285,6 +296,7 @@ class App extends Component {
 
   componentDidMount = async () => {
     try {
+      this.setState({error_message: ""})
       if (window.ethereum) {
         // Get network provider and web3 instance.
         const web3 = new Web3(window.ethereum);
@@ -361,6 +373,12 @@ class App extends Component {
                       <label htmlFor="game_expired_address" className="form-label">Participation price</label>
                       <input type="number" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.participation_value} onChange={this.handleChangeParticipation} required/>
                       <div id="game_expired_address_help" className="form-text">Participation price players have to pay to play, which summed will be delivered to game winner</div>
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="game_expired_address" className="form-label">Starting roll</label>
+                      <input type="number" max="1000" min="2" step="1" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.starting_roll_value} onChange={this.handleChangeStartingRoll} required/>
+                      <div id="game_expired_address_help" className="form-text">Starting roll is number between 2-1000 which is used in first roll of the game</div>
                     </div>
 
                     <div className="mb-3">

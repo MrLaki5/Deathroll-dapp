@@ -109,3 +109,10 @@
   background-color: transparent;
   color: #df4759;
 }
+
+.form-check-input:checked{
+  background-color:#df4759;
+  border-color: #df4759;
+  outline:none;
+  box-shadow: 0 0 0 0.0rem rgba(206, 46, 25, 0.25);
+}

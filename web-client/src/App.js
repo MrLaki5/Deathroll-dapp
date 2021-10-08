@@ -31,7 +31,8 @@ class App extends Component {
                    last_action_time: "",
                    game_expired_address: "",
                    error_message: "",
-                   starting_roll_value: 100
+                   starting_roll_value: 100,
+                   first_to_play: 1
                   };
 
     this.handleChange = this.handleChange.bind(this);
@@ -43,6 +44,11 @@ class App extends Component {
     this.handleChangeExpiredAddress = this.handleChangeExpiredAddress.bind(this);
     this.handleSubmitExpiredAddress = this.handleSubmitExpiredAddress.bind(this);
     this.handleChangeStartingRoll = this.handleChangeStartingRoll.bind(this)
+    this.onFirstToPlayChange = this.onFirstToPlayChange.bind(this)
+  }
+
+  onFirstToPlayChange(event) {
+    this.setState({first_to_play: Number(event.target.value)})
   }
 
   handleChange(event){
@@ -79,7 +85,8 @@ class App extends Component {
         data: DeathrollContract.bytecode,
         arguments: [this.state.oponent_value, 
                     this.state.web3.utils.toWei(this.state.participation_value.toString(), "ether"),
-                    this.state.starting_roll_value]
+                    this.state.starting_roll_value,
+                    this.state.first_to_play]
       }
 
       let parameter = {
@@ -188,12 +195,14 @@ class App extends Component {
     const round_player_curr = await this.state.contract.methods.get_round_player().call()
     const last_action_time = await this.state.contract.methods.get_last_action_time().call()
     this.check_roll_history();
-    if (Number(round_player_curr) === Number(this.state.player_number)) {
+    this.setState({ round_roll: round_roll_curr, round_player: round_player_curr, last_action_time: last_action_time })
+  }
+
+  check_is_roll_time = async () => {
+    await this.check_round_info()
+    if (Number(this.state.round_player) === Number(this.state.player_number)) {
       this.setState({show_roll: true})
     }
-    this.setState({ round_roll: round_roll_curr, round_player: round_player_curr, last_action_time: last_action_time })
-    console.log("ROUND BIG ROLL: " + round_roll_curr)
-    console.log("ROUND BIG PLAYER: " + round_player_curr)
   }
 
   generate_roll = async () => {
@@ -230,7 +239,7 @@ class App extends Component {
 
       const current_player_number = await this.state.contract.methods.get_current_player(this.state.accounts[0]).call()
       const participation_value_wei = await this.state.contract.methods.get_minimum_value().call()
-      this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei, error_message: ""})
+      this.setState({player_number: current_player_number, participation_value_wei: participation_value_wei, error_message: "", game_status: "Ongoing"})
 
       const round_state = Number(await this.state.contract.methods.get_round_state().call());
 
@@ -239,7 +248,10 @@ class App extends Component {
         console.log("ROLLL: " + event.event)
 
         if (event.event === "Roll_time") {
-          this.check_round_info();
+          this.check_is_roll_time();
+          console.log("Round player: " + this.state.round_player)
+          console.log("CURR player: " + this.state.player_number)
+          
         }
         else if (event.event === "Game_finished") {
           this.check_game_finish_status(event.returnValues.winner_address)
@@ -257,7 +269,10 @@ class App extends Component {
         }
       }
       else if (round_state === current_player_number) {
-        this.check_round_info();
+        this.check_is_roll_time();
+        if (Number(this.state.round_player) === Number(this.state.player_number)) {
+          this.setState({show_roll: true})
+        }
       }
       else if (round_state === 3) {
 
@@ -377,8 +392,23 @@ class App extends Component {
 
                     <div className="mb-3">
                       <label htmlFor="game_expired_address" className="form-label">Starting roll</label>
-                      <input type="number" max="1000" min="2" step="1" className="form-control" id="game_expired_address" aria-describedby="game_expired_address_help" value={this.state.starting_roll_value} onChange={this.handleChangeStartingRoll} required/>
-                      <div id="game_expired_address_help" className="form-text">Starting roll is number between 2-1000 which is used in first roll of the game</div>
+                      <input type="number" max="1000" min="2" step="1" className="form-control" id="starting_roll" aria-describedby="starting_roll_help" value={this.state.starting_roll_value} onChange={this.handleChangeStartingRoll} required/>
+                      <div id="starting_roll_help" className="form-text">Starting roll is number between 2-1000 which is used in first roll of the game</div>
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="game_expired_address" className="form-label">First to play</label>
+                      <div>
+                        <div className="form-check form-check-inline" aria-describedby="player_roll_help">
+                          <input className="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="1" onChange={this.onFirstToPlayChange} checked={this.state.first_to_play === 1}/>
+                          <label className="form-check-label" htmlFor="inlineRadio1">Player 1</label>
+                        </div>
+                        <div className="form-check form-check-inline">
+                          <input className="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="2" onChange={this.onFirstToPlayChange} checked={this.state.first_to_play === 2}/>
+                          <label className="form-check-label" htmlFor="inlineRadio2">Player 2</label>
+                        </div>
+                      </div>
+                      <div id="player_roll_help" className="form-text">First to play and do the roll: player1 (You) or player2 (Oponnent)</div>
                     </div>
 
                     <div className="mb-3">

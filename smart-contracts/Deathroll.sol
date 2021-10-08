@@ -26,12 +26,15 @@ contract Deathroll {
   GameState private game_state = GameState.INIT;
   GameState private first_to_play = GameState.ROLL_P1;
 
-  constructor(address _oponent, uint _minimum_amount, uint _start_roll) {
+  constructor(address _oponent, uint _minimum_amount, uint _start_roll, uint _first_plays) {
       owner = msg.sender;
       oponent = _oponent;
       minimum_amount = _minimum_amount;
       last_action_time = block.timestamp;
       round_roll = _start_roll;
+      if (_first_plays == 2) {
+        first_to_play = GameState.ROLL_P2;
+      }
   }
 
   event Roll_time(address roll_address);
@@ -46,10 +49,14 @@ contract Deathroll {
   modifier expiredWithdraw() { require((block.timestamp - last_action_time) / 3600 > 2 && address(this).balance > 0); _; }
 
   function get_round_player() public view returns (uint) {
-    if (game_state == GameState.ROLL_P1) {
+    GameState curr_state = game_state;
+    if (curr_state == GameState.INIT) {
+      curr_state = first_to_play;
+    }
+    if (curr_state == GameState.ROLL_P1) {
       return 1;
     }
-    else if (game_state == GameState.ROLL_P2) {
+    else if (curr_state == GameState.ROLL_P2) {
       return 2;
     }
     else {

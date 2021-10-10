@@ -17,6 +17,13 @@ npm install
 npm start
 ```
 
+### Docker build
+``` bash
+cd docker
+docker build -t deathroll:latest -f dockerfile .
+docker run - it --rm -p 80:80 --name deathroll deathroll:latest
+```
+
 ### How to play
 * Player1 needs to create game (contract) with filling in public wallet address of player2.
 

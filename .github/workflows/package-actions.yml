@@ -1,0 +1,65 @@
+name: package-actions
+on:
+  push:
+    branches:
+      - main
+jobs:
+  package-docker-image:
+    runs-on: ubuntu-20.04
+    steps:
+      # Install node
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      # Install solidity compiler
+      - name: Installing solidity compiler
+        run: |
+          npm install -g solc
+          solcjs --version
+
+      # Checks out this repository and downloads code
+      - uses: actions/checkout@v2
+
+      # Compile contract
+      - name: Compiling solidity contract
+        run: |
+          solcjs --optimize --bin --abi -o bin smart-contracts/Deathroll.sol
+
+          echo -n {\"abi\": > bin/Deathroll.json
+          cat bin/*.abi >> bin/Deathroll.json
+          echo -n ,\"bytecode\":\" >> bin/Deathroll.json
+          cat bin/*.bin >> bin/Deathroll.json
+          echo -n \"} >> bin/Deathroll.json
+
+      # Move binaries data to front-end client
+      - name: Move compiled binaries
+        run: |
+          mv bin/Deathroll.json web-client/src/contracts/Deathroll.json
+
+      # Build front-end
+      - name: Install deps and build front-end client
+        run: |
+          cd web-client
+          npm install
+          npm run build
+
+          cp -rv build ../docker
+          cd ..
+
+      # Login to gihub registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.TOKEN }}
+
+      # Build and push docker image
+      - name: Build docker image and push it to github registry
+        run: |
+          cd docker
+          docker build . --tag ghcr.io/mrlaki5/deathroll-dapp:${{ github.sha }} --tag ghcr.io/mrlaki5/deathroll-dapp:latest
+          docker push ghcr.io/mrlaki5/deathroll-dapp:${{ github.sha }}
+          docker push ghcr.io/mrlaki5/deathroll-dapp:latest
+          cd ..

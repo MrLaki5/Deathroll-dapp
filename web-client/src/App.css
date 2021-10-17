@@ -64,6 +64,13 @@
   transform: translate(-50%, -50%);
 }
 
+.author-place {
+  position: absolute;
+  top: 90%;
+  left: 90%;
+  transform: translate(-50%, -50%);
+}
+
 .unselectable {
   -webkit-touch-callout: none;
   -webkit-user-select: none;

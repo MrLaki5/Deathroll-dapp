@@ -10,7 +10,8 @@ class App extends Component {
   constructor(props) {
     super(props);
 
-    this.state = { storageValue: 0, 
+    this.state = { storageValue: 0,
+                   version: "v0.1",
                    web3: null, 
                    accounts: null, 
                    contract: null, 
@@ -19,8 +20,7 @@ class App extends Component {
                    game_contract_address: "", 
                    round_number: 1234, 
                    round_roll: 100, 
-                   round_player: 1, 
-                   round_salt: 'country roads', 
+                   round_player: 1,
                    game_status: "Ongoing", 
                    show_roll: false, 
                    show_init: false,
@@ -68,7 +68,16 @@ class App extends Component {
   }
 
   handleLeaveRoom = async () => {
-    this.setState({contract: null})
+    this.setState({contract: null,
+                   game_expired_address: "",
+                   error_message: "",
+                   oponent_value: "",
+                   participation_value: "",
+                   participation_value_wei: "",
+                   game_contract_address: "",
+                   starting_roll_value: 100,
+                   first_to_play: 1
+    })
   }
 
   handleChangeStartingRoll(event) {
@@ -368,6 +377,7 @@ class App extends Component {
           <div className="container image-container spacer">
             <img src="/background.jpg" className="img-fluid image-fix-height-250 unselectable" alt="..."/>
             <div className="centered"><h2 className="title-style unselectable">Deathroll</h2></div>
+            <div className="author-place"><small className="title-style unselectable">{this.state.version}</small></div>
           </div>
 
           <div className="container spacer">
@@ -462,6 +472,7 @@ class App extends Component {
         <div className="container image-container spacer">
           <img src="/background.jpg" className="img-fluid image-fix-height-250 unselectable" alt="..."/>
           <div className="centered"><h2 className="title-style unselectable">Deathroll</h2></div>
+          <div className="author-place"><small className="title-style unselectable">{this.state.version}</small></div>
         </div>
 
         <div className="container spacer">

@@ -32,7 +32,10 @@ class App extends Component {
                    game_expired_address: "",
                    error_message: "",
                    starting_roll_value: 100,
-                   first_to_play: 1
+                   first_to_play: 1,
+                   show_create_game_load: false,
+                   show_join_game_load: false,
+                   show_expired_game_load: false
                   };
 
     this.handleChange = this.handleChange.bind(this);
@@ -87,7 +90,7 @@ class App extends Component {
   handleSubmit(event) {
     event.preventDefault();
     try {
-      this.setState({error_message: ""})
+      this.setState({error_message: "", show_create_game_load: true})
       // Load and deploy contract
       let deploy_contract = new this.state.web3.eth.Contract(DeathrollContract.abi);
       let payload = {
@@ -108,32 +111,32 @@ class App extends Component {
         console.log('Transaction Hash :', transactionHash);
       }).on('confirmation', () => {}).then((newContractInstance) => {
           console.log('Deployed Contract Address : ', newContractInstance.options.address);
-          this.setState({ contract: newContractInstance, game_contract_address: newContractInstance.options.address }, () => this.load_state_function());
+          this.setState({ contract: newContractInstance, game_contract_address: newContractInstance.options.address, show_create_game_load: false }, () => this.load_state_function());
       })
     } catch (error) {
       // Catch any errors for any of the above operations.
-      this.setState({error_message: "There was problem with creating a game contract."})
+      this.setState({error_message: "There was problem with creating a game contract.", show_create_game_load: false})
     }
   }
 
   handleSubmitContractAddress(event) {
     event.preventDefault();
     try {
-      this.setState({error_message: ""})
+      this.setState({error_message: "", show_join_game_load: true})
       if (this.state.web3.utils.isAddress(this.state.game_contract_address)) {
         const instance = new this.state.web3.eth.Contract(
           DeathrollContract.abi,
           this.state.game_contract_address
         );
 
-        this.setState({ contract: instance }, () => this.load_state_function());
+        this.setState({ contract: instance, show_join_game_load: false }, () => this.load_state_function());
       }
       else {
-        this.setState({error_message: "Invalid game address."})
+        this.setState({error_message: "Invalid game address.", show_join_game_load: false})
       }
     } catch (error) {
       // Catch any errors for any of the above operations.
-      this.setState({error_message: "There is error joining a game."})
+      this.setState({error_message: "There is error joining a game.", show_join_game_load: false})
     }
   }
 
@@ -144,7 +147,7 @@ class App extends Component {
 
   expire_withdraw = async () => {
     try {
-      this.setState({error_message: ""})
+      this.setState({error_message: "", show_expired_game_load: true})
       if (this.state.web3.utils.isAddress(this.state.game_expired_address)) {
         const instance = new this.state.web3.eth.Contract(
           DeathrollContract.abi,
@@ -152,13 +155,15 @@ class App extends Component {
         );
 
         await instance.methods.expire_withdraw().send({ from: this.state.accounts[0] })
+
+        this.setState({show_expired_game_load: false})
       }
       else {
-        this.setState({error_message: "Invalid game address."})
+        this.setState({error_message: "Invalid game address.", show_expired_game_load: false})
       }
     } catch (error) {
       // Catch any errors for any of the above operations.
-      this.setState({error_message: "There is error requesting expired withdrawal."})
+      this.setState({error_message: "There is error requesting expired withdrawal.", show_expired_game_load: false})
     }
   }
 
@@ -422,7 +427,8 @@ class App extends Component {
                     </div>
 
                     <div className="mb-3">
-                      <input type="submit" className="btn btn-outline-danger" value="Create"/>
+                      <input type="submit" className="btn btn-outline-danger" value="Create"/>&nbsp;
+                      <div className="spinner-border spinner-border-sm text-danger" role="status" style={this.state.show_create_game_load ?  {}: {display: 'none'}}></div>
                     </div>
                   </form>
               </div>
@@ -436,7 +442,8 @@ class App extends Component {
                     <div id="game_expired_address_help" className="form-text">Address of game contract where You want to join </div>
                   </div>
                   <div className="mb-3">
-                    <input type="submit" className="btn btn-outline-danger" value="Join"/>
+                    <input type="submit" className="btn btn-outline-danger" value="Join"/>&nbsp;
+                    <div className="spinner-border spinner-border-sm text-danger" role="status" style={this.state.show_join_game_load ?  {}: {display: 'none'}}></div>
                   </div>
                 </form>
               </div>
@@ -450,7 +457,8 @@ class App extends Component {
                       <div id="game_expired_address_help" className="form-text">Address of game contract where You want to use expired withdraw </div>
                     </div>
                     <div className="mb-3">
-                      <input type="submit" className="btn btn-outline-danger" value="Withdraw"/>
+                      <input type="submit" className="btn btn-outline-danger" value="Withdraw"/>&nbsp;
+                      <div className="spinner-border spinner-border-sm text-danger" role="status" style={this.state.show_expired_game_load ?  {}: {display: 'none'}}></div>
                     </div>
                 </form>
               </div>
